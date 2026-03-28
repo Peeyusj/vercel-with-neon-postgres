@@ -1,89 +1,65 @@
-import Image from "next/image";
 import Link from "next/link";
-import { NavBar } from "@/components/navbar";
-import { checkDbConnection } from "@/lib/db/client";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Sparkles, Database, Zap } from "lucide-react";
 
-export default async function Home() {
-  const result = await checkDbConnection();
+export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 md:max-w-lg md:px-0 lg:max-w-xl">
-        <NavBar />
-        <main className="flex flex-1 flex-col justify-center">
-          <h1 className="text-3xl font-semibold leading-none tracking-tighter md:text-4xl md:leading-none lg:text-5xl lg:leading-none">
-            Vercel with Neon Postgres
-          </h1>
-          <p className="mt-3.5 max-w-lg text-base leading-snug tracking-tight text-[#61646B] md:text-lg md:leading-snug lg:text-xl lg:leading-snug dark:text-[#94979E]">
-            A minimal template for building full-stack React applications using
-            Next.js, Vercel, and Neon.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-5 md:mt-9 lg:mt-10">
-            <Link
-              className="rounded-full bg-[#00E599] px-5 py-2.5 font-semibold tracking-tight text-[#0C0D0D] transition-colors duration-200 hover:bg-[#00E5BF] lg:px-7 lg:py-3"
-              href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fneondatabase-labs%2Fvercel-marketplace-neon%2Ftree%2Fmain&project-name=my-vercel-neon-app&repository-name=my-vercel-neon-app&products=[{%22type%22:%22integration%22,%22integrationSlug%22:%22neon%22,%22productSlug%22:%22neon%22,%22protocol%22:%22storage%22}]"
-              target="_blank"
-            >
-              Deploy to Vercel
-            </Link>
-            <Link
-              className="group flex items-center gap-2 leading-none tracking-tight"
-              href="https://github.com/neondatabase-labs/vercel-marketplace-neon"
-              target="_blank"
-            >
-              View on GitHub
-              <Image
-                className="transition-transform duration-200 group-hover:translate-x-1 dark:invert"
-                src="/arrow.svg"
-                alt="arrow"
-                width={16}
-                height={10}
-                priority
-              />
-            </Link>
-          </div>
-        </main>
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E4E5E7] py-5 sm:gap-2 sm:gap-6 md:pb-12 md:pt-10 dark:border-[#303236]">
-          <ul className="flex items-center gap-4 sm:gap-6">
-            {[
-              {
-                text: "Docs",
-                href: "https://neon.tech/docs/",
-                icon: "/docs.svg",
-              },
-              {
-                text: "Discord",
-                href: "https://discord.com/invite/92vNTzKDGp",
-                icon: "/discord.svg",
-              },
-            ].map((link) => (
-              <Link
-                className="flex items-center gap-2 opacity-70 transition-opacity duration-200 hover:opacity-100"
-                key={link.text}
-                href={link.href}
-                target="_blank"
-              >
-                <Image
-                  className="dark:invert"
-                  src={link.icon}
-                  alt={link.text}
-                  width={16}
-                  height={16}
-                  priority
-                />
-                <span className="text-sm tracking-tight">{link.text}</span>
-              </Link>
-            ))}
-          </ul>
-          <span
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
-              result === "Database connected"
-                ? "border-[#00E599]/20 bg-[#00E599]/10 text-[#1a8c66] dark:bg-[#00E599]/10 dark:text-[#00E599]"
-                : "border-red-500/20 bg-red-500/10 text-red-500 dark:text-red-500"
-            }`}
-          >
-            {result}
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-zinc-950 text-zinc-50 font-sans selection:bg-zinc-800">
+      
+      {/* Background Gradients */}
+      <div className="absolute top-0 -z-10 h-full w-full bg-zinc-950">
+        <div className="absolute bottom-auto left-auto right-0 top-0 h-[500px] w-[500px] -translate-x-[30%] translate-y-[20%] rounded-full bg-[rgba(120,119,198,0.3)] opacity-50 blur-[80px]"></div>
+      </div>
+
+      <div className="container relative z-10 flex flex-col items-center text-center px-4 sm:px-6">
+        
+        {/* Announcement Badge */}
+        <div className="mb-8 inline-flex items-center rounded-full border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-300 backdrop-blur-xl">
+          <Sparkles className="mr-2 h-4 w-4 text-blue-400" />
+          <span className="flex gap-2">
+            Better Auth & Neon DB Integration <span className="hidden sm:inline">is now live</span>
           </span>
-        </footer>
+        </div>
+
+        {/* Hero Headline */}
+        <h1 className="max-w-4xl text-5xl font-extrabold tracking-tight sm:text-7xl">
+          Build the future with <br className="hidden sm:block" />
+          <span className="bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">
+            Next.js & Postgres
+          </span>
+        </h1>
+        
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400 sm:text-xl">
+          A production-ready fullstack template engineered for speed. Featuring Edge rendering, serverless database scaling, and zero-config authentication.
+        </p>
+
+        {/* Call to Actions */}
+        <div className="mt-10 flex w-full flex-col justify-center gap-4 sm:flex-row">
+          <Link href="/sign-up" className="w-full sm:w-auto">
+            <Button size="lg" className="w-full h-12 px-8 text-base bg-white text-black hover:bg-zinc-200 group">
+              Start Building
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Button>
+          </Link>
+          <Link href="/sign-in" className="w-full sm:w-auto">
+            <Button size="lg" variant="outline" className="w-full h-12 px-8 text-base border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 hover:text-white">
+              Sign In
+            </Button>
+          </Link>
+        </div>
+
+        {/* Feature Micro-grid */}
+        <div className="mt-20 grid grid-cols-2 gap-8 text-sm text-zinc-500 sm:grid-cols-2 md:flex md:gap-16">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-zinc-400" />
+            <span>Vercel Edge</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-zinc-400" />
+            <span>Neon Serverless</span>
+          </div>
+        </div>
+
       </div>
     </div>
   );

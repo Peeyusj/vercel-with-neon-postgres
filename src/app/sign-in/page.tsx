@@ -3,110 +3,103 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn } from "@/lib/auth/client";
+import { Loader2, Hexagon } from "lucide-react";
 
 export default function SignInPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
+    setIsLoading(true);
+    setError("");
 
-    try {
-      const result = await signIn.email({
-        email,
-        password,
-      });
+    const formData = new FormData(e.currentTarget);
+    
+    const { data, error: authError } = await authClient.signIn.email({
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+    });
 
-      if (result.error) {
-        setError(result.error.message || "Failed to sign in");
-      } else {
-        router.push("/");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
-    } finally {
-      setLoading(false);
+    if (authError) {
+      setError(authError.message || "Invalid email or password");
+      setIsLoading(false);
+    } else {
+      router.push("/");
+      router.refresh(); 
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 md:max-w-lg md:px-0 lg:max-w-xl">
-        <main className="flex flex-1 flex-col justify-center">
-          <div className="mx-auto w-full max-w-sm">
-            <h1 className="text-3xl font-semibold leading-none tracking-tighter md:text-4xl">
-              Sign In
-            </h1>
-            <p className="mt-3.5 text-base leading-snug tracking-tight text-[#61646B] md:text-lg dark:text-[#94979E]">
-              Enter your email and password to sign in to your account.
-            </p>
-
-            <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-              {error && (
-                <div className="rounded-md border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500 dark:text-red-500">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={loading}
-                    placeholder="you@example.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={loading}
-                    placeholder="Enter your password"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                variant="default"
-                className="w-full"
-                disabled={loading}
-              >
-                {loading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-
-            <p className="mt-6 text-center text-sm text-[#61646B] dark:text-[#94979E]">
-              Don't have an account?{" "}
-              <Link
-                href="/sign-up"
-                className="font-medium text-primary hover:underline"
-              >
-                Sign up
-              </Link>
+    <div className="grid min-h-screen w-full lg:grid-cols-2 bg-zinc-50 dark:bg-zinc-950 font-sans">
+      
+      {/* Right Side Form (Flipped order for variety) */}
+      <div className="flex items-center justify-center p-8 lg:p-12 order-2 lg:order-1">
+        <div className="mx-auto w-full max-w-[400px] space-y-8">
+          <div className="flex flex-col space-y-2 text-center lg:text-left">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Welcome back</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Enter your credentials to access your account.
             </p>
           </div>
-        </main>
+
+          <form onSubmit={handleSignIn} className="space-y-5">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input id="email" name="email" type="email" placeholder="name@example.com" required disabled={isLoading} className="h-11" />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link href="#" className="text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300">
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input id="password" name="password" type="password" required disabled={isLoading} className="h-11" />
+              </div>
+            </div>
+
+            {error && <div className="text-sm font-medium text-red-500 bg-red-50 dark:bg-red-950/50 p-3 rounded-md border border-red-200 dark:border-red-900">{error}</div>}
+
+            <Button type="submit" className="w-full h-11" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Sign In
+            </Button>
+          </form>
+
+          <p className="px-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+            Don't have an account?{" "}
+            <Link href="/sign-up" className="underline underline-offset-4 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors">
+              Sign up
+            </Link>
+          </p>
+        </div>
       </div>
+
+      {/* Left Side Branding */}
+      <div className="relative hidden flex-col bg-zinc-900 p-10 text-white lg:flex justify-between overflow-hidden order-1 lg:order-2">
+        <div className="absolute inset-0 bg-zinc-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]" />
+        
+        <div className="relative z-20 flex items-center justify-end text-lg font-medium tracking-tight w-full">
+          Acme Corp
+          <Hexagon className="ml-2 h-6 w-6" />
+        </div>
+        
+        <div className="relative z-20 mt-auto text-right">
+          <blockquote className="space-y-2">
+            <p className="text-xl leading-relaxed">
+              "Secure, fast, and seamless. Exactly what modern development should feel like."
+            </p>
+          </blockquote>
+        </div>
+      </div>
+
     </div>
   );
 }
