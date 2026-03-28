@@ -20,7 +20,7 @@ export default function SignUpPage() {
     setError("");
 
     const formData = new FormData(e.currentTarget);
-    
+
     const { data, error: authError } = await authClient.signUp.email({
       email: formData.get("email") as string,
       password: formData.get("password") as string,
@@ -31,7 +31,7 @@ export default function SignUpPage() {
       setError(authError.message!);
       setIsLoading(false);
     } else {
-      router.push("/");
+      router.push("/dashboard");
     }
   };
 
@@ -40,18 +40,22 @@ export default function SignUpPage() {
       {/* Left Side Branding */}
       <div className="relative hidden flex-col bg-zinc-900 p-10 text-white lg:flex justify-between overflow-hidden">
         <div className="absolute inset-0 bg-zinc-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]" />
-        
+
         <div className="relative z-20 flex items-center text-lg font-medium tracking-tight">
           <Hexagon className="mr-2 h-6 w-6" />
           Acme Corp
         </div>
-        
+
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-xl leading-relaxed">
-              "This template saved me dozens of hours of configuration. Having Neon, Better Auth, and Vercel working together out of the box is basically a superpower."
+              "This template saved me dozens of hours of configuration. Having
+              Neon, Better Auth, and Vercel working together out of the box is
+              basically a superpower."
             </p>
-            <footer className="text-sm text-zinc-400">Sofia Davis, Lead Engineer</footer>
+            <footer className="text-sm text-zinc-400">
+              Sofia Davis, Lead Engineer
+            </footer>
           </blockquote>
         </div>
       </div>
@@ -60,7 +64,9 @@ export default function SignUpPage() {
       <div className="flex items-center justify-center p-8 lg:p-12">
         <div className="mx-auto w-full max-w-[400px] space-y-8">
           <div className="flex flex-col space-y-2 text-center lg:text-left">
-            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Create an account</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+              Create an account
+            </h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Enter your details below to kickstart your journey.
             </p>
@@ -70,19 +76,45 @@ export default function SignUpPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input id="name" name="name" placeholder="John Doe" required disabled={isLoading} className="h-11" />
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder="John Doe"
+                  required
+                  disabled={isLoading}
+                  className="h-11"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
-                <Input id="email" name="email" type="email" placeholder="name@example.com" required disabled={isLoading} className="h-11" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="name@example.com"
+                  required
+                  disabled={isLoading}
+                  className="h-11"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" name="password" type="password" required disabled={isLoading} className="h-11" />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  disabled={isLoading}
+                  className="h-11"
+                />
               </div>
             </div>
 
-            {error && <div className="text-sm font-medium text-red-500 bg-red-50 dark:bg-red-950/50 p-3 rounded-md border border-red-200 dark:border-red-900">{error}</div>}
+            {error && (
+              <div className="text-sm font-medium text-red-500 bg-red-50 dark:bg-red-950/50 p-3 rounded-md border border-red-200 dark:border-red-900">
+                {error}
+              </div>
+            )}
 
             <Button type="submit" className="w-full h-11" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -92,7 +124,10 @@ export default function SignUpPage() {
 
           <p className="px-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
             Already have an account?{" "}
-            <Link href="/sign-in" className="underline underline-offset-4 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors">
+            <Link
+              href="/sign-in"
+              className="underline underline-offset-4 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors"
+            >
               Sign in
             </Link>
           </p>
