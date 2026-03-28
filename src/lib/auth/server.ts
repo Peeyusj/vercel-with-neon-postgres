@@ -12,11 +12,28 @@ const getBaseURL = () => {
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
   return "http://localhost:3000";
+};
+
+const getTrustedOrigins = () => {
+  const origins = ["http://localhost:3000", "http://localhost:3001"];
+
+  if (process.env.VERCEL_URL) {
+    origins.push(`https://${process.env.VERCEL_URL}`);
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    origins.push(process.env.NEXT_PUBLIC_APP_URL);
+  }
+
+  return origins;
 };
 
 export const auth = betterAuth({
   baseURL: getBaseURL(),
+  trustedOrigins: getTrustedOrigins(),
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
