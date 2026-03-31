@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { ThemeProvider } from "@/components/themes/provider"
+import { ThemeProvider } from "@/components/themes/provider";
 import "./globals.css";
 import { inter } from "./fonts";
 
 export const metadata: Metadata = {
-  title: "Vercel + Neon",
+  title: "IPL Prediction ",
   description: "Use Neon with Vercel",
 };
 
@@ -26,5 +26,5 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

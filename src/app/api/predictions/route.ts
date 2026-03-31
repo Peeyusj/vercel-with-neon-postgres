@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
           matchType: match.matchType,
           matchStatus: match.status,
           matchStartTime: match.matchStartTime,
+          votingCutoffTime: match.votingCutoffTime,
           winner: match.winner,
         })
         .from(prediction)
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
             matchType: p.matchType,
             status: p.matchStatus,
             matchStartTime: p.matchStartTime.toISOString(),
+            votingCutoffTime: p.votingCutoffTime.toISOString(),
             winner: p.winner,
           },
         })),
@@ -87,14 +89,11 @@ export async function POST(request: NextRequest) {
     const session = await requireSession();
     const userProfile = await getOrCreateProfile(session.user.id);
     const body = await request.json();
-    const { matchId, selectedTeam, amount } = body;
+    const { matchId, selectedTeam } = body;
 
-    if (!matchId || !selectedTeam || !amount || amount <= 0) {
+    if (!matchId || !selectedTeam) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "matchId, selectedTeam, and positive amount are required",
-        },
+        { success: false, message: "matchId and selectedTeam are required" },
         { status: 400 },
       );
     }
@@ -121,30 +120,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate selected team
+    const specialOptions = ["DRAW", "RAIN", "CANCELLED"];
     if (
       selectedTeam !== existingMatch.teamA &&
-      selectedTeam !== existingMatch.teamB
+      selectedTeam !== existingMatch.teamB &&
+      !specialOptions.includes(selectedTeam)
     ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Selected team must be one of the match teams",
+          message: "Invalid selection",
         },
         { status: 400 },
       );
     }
 
-    // Check minimum entry fee
-    const entryFee = parseFloat(existingMatch.entryFee);
-    if (amount < entryFee) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Minimum prediction amount is $${entryFee}`,
-        },
-        { status: 400 },
-      );
-    }
+    // Use match entry fee as the bet amount
+    const amount = parseFloat(existingMatch.entryFee);
 
     // Check wallet balance
     const walletBalance = parseFloat(userProfile.walletBalance);

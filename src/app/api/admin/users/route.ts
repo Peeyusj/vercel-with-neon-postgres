@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
           createdAt: user.createdAt,
           role: profile.role,
           walletBalance: profile.walletBalance,
+          lostMoney: profile.lostMoney,
           phone: profile.phone,
           isVerified: profile.isVerified,
         })
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
           email: u.email,
           role: u.role || "USER",
           walletBalance: u.walletBalance || "100.00",
+          lostMoney: u.lostMoney || "0.00",
           phone: u.phone,
           isVerified: u.isVerified ?? false,
           createdAt: u.createdAt.toISOString(),

@@ -1,14 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { profile } from "@/lib/db/schema";
+import { profile, transaction } from "@/lib/db/schema";
 import { requireSession, getOrCreateProfile } from "@/lib/auth/session";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 // GET /api/profile - Get current user profile
 export async function GET() {
   try {
     const session = await requireSession();
     const userProfile = await getOrCreateProfile(session.user.id);
+
+    // Calculate won money (net profit from wins = sum of PREDICTION_WIN / 2)
+    const [winResult] = await db
+      .select({
+        total: sql<string>`COALESCE(SUM(${transaction.amount}::numeric) / 2, 0)`,
+      })
+      .from(transaction)
+      .where(
+        and(
+          eq(transaction.userId, session.user.id),
+          eq(transaction.type, "CREDIT"),
+          eq(transaction.reason, "PREDICTION_WIN"),
+        ),
+      );
 
     return NextResponse.json({
       success: true,
@@ -19,6 +33,7 @@ export async function GET() {
         role: userProfile.role,
         walletBalance: userProfile.walletBalance,
         lostMoney: userProfile.lostMoney,
+        wonMoney: winResult.total || "0.00",
         isVerified: userProfile.isVerified,
         name: session.user.name,
         email: session.user.email,

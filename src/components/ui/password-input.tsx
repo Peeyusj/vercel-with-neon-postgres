@@ -4,8 +4,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  id: string;
-  name: string;
+  id?: string;
+  name?: string;
   required?: boolean;
   placeholder?: string;
   disabled?: boolean;

@@ -28,6 +28,14 @@ export interface PaginatedResponse<T> {
 }
 
 // ─── Match ──────────────────────────────────────────────────
+export interface UserPredictionSummary {
+  id: string;
+  selectedTeam: string;
+  amount: string;
+  status: PredictionStatus;
+  canChange: boolean;
+}
+
 export interface MatchResponse {
   id: string;
   teamA: string;
@@ -41,6 +49,7 @@ export interface MatchResponse {
   secondsUntilCutoff: number;
   winner: string | null;
   createdAt: string;
+  userPrediction?: UserPredictionSummary | null;
 }
 
 export interface CreateMatchInput {
@@ -96,6 +105,7 @@ export interface ProfileResponse {
   role: UserRole;
   walletBalance: string;
   lostMoney: string;
+  wonMoney: string;
   isVerified: boolean;
   name: string;
   email: string;

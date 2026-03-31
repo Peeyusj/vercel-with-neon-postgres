@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import * as XLSX from "xlsx";
 import {
   Card,
   CardContent,
@@ -40,52 +41,98 @@ interface UploadResult {
   error?: string;
 }
 
+function parseCSV(text: string): ParsedMatch[] {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length < 2) return [];
+  const matches: ParsedMatch[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",").map((c) => c.trim());
+    if (cols.length < 4) continue;
+    matches.push({
+      teamA: cols[0],
+      teamB: cols[1],
+      matchType: cols[2] || "NORMAL",
+      matchStartTime: cols[3],
+    });
+  }
+  return matches;
+}
+
+function parseExcel(buffer: ArrayBuffer): ParsedMatch[] {
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  if (rows.length < 2) return [];
+  const matches: ParsedMatch[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length < 4) continue;
+    const teamA = String(row[0] || "").trim();
+    const teamB = String(row[1] || "").trim();
+    const matchType = String(row[2] || "NORMAL").trim();
+    let startTime = String(row[3] || "").trim();
+
+    // Excel may give serial date numbers – convert them
+    if (!isNaN(Number(startTime)) && Number(startTime) > 0) {
+      const date = XLSX.SSF.parse_date_code(Number(startTime));
+      if (date) {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        startTime = `${date.y}-${pad(date.m)}-${pad(date.d)}T${pad(date.H)}:${pad(date.M)}:${pad(date.S)}`;
+      }
+    }
+
+    if (!teamA || !teamB) continue;
+    matches.push({ teamA, teamB, matchType, matchStartTime: startTime });
+  }
+  return matches;
+}
+
 export default function AdminBulkUploadPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [parsedData, setParsedData] = useState<ParsedMatch[]>([]);
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState<UploadResult[] | null>(null);
   const [parseError, setParseError] = useState("");
+  const [fileName, setFileName] = useState("");
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setParseError("");
     setResults(null);
+    setFileName(file.name);
+
+    const isExcel =
+      file.name.endsWith(".xlsx") ||
+      file.name.endsWith(".xls") ||
+      file.type.includes("spreadsheetml") ||
+      file.type.includes("ms-excel");
 
     try {
-      const text = await file.text();
-      const lines = text
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0);
+      let matches: ParsedMatch[] = [];
 
-      if (lines.length < 2) {
-        setParseError("File must have a header row and at least one data row.");
-        return;
-      }
-
-      // Skip header row
-      const matches: ParsedMatch[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",").map((c) => c.trim());
-        if (cols.length < 4) continue;
-        matches.push({
-          teamA: cols[0],
-          teamB: cols[1],
-          matchType: cols[2] || "NORMAL",
-          matchStartTime: cols[3],
-        });
+      if (isExcel) {
+        const buffer = await file.arrayBuffer();
+        matches = parseExcel(buffer);
+      } else {
+        const text = await file.text();
+        matches = parseCSV(text);
       }
 
       if (matches.length === 0) {
-        setParseError("No valid match data found in file.");
+        setParseError(
+          "No valid match data found in file. Ensure header row + data rows with 4 columns.",
+        );
         return;
       }
-
       setParsedData(matches);
-    } catch {
-      setParseError("Failed to parse file. Ensure it's a CSV file.");
+    } catch (err) {
+      console.error(err);
+      setParseError("Failed to parse file. Check that format is correct.");
     }
   };
 
@@ -102,6 +149,8 @@ export default function AdminBulkUploadPage() {
       const data = await res.json();
       if (data.success) {
         setResults(data.data);
+      } else {
+        setParseError(data.message || "Upload failed.");
       }
     } catch {
       setParseError("Upload failed. Please try again.");
@@ -110,12 +159,11 @@ export default function AdminBulkUploadPage() {
     }
   };
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadCSV = () => {
     const csv = `Team A,Team B,Match Type,Start Time
 Mumbai Indians,Chennai Super Kings,NORMAL,2026-04-01T19:30:00
 Royal Challengers Bengaluru,Kolkata Knight Riders,NORMAL,2026-04-02T15:30:00
 Delhi Capitals,Rajasthan Royals,QUARTERFINAL,2026-04-05T19:30:00`;
-
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -125,22 +173,57 @@ Delhi Capitals,Rajasthan Royals,QUARTERFINAL,2026-04-05T19:30:00`;
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadExcel = () => {
+    const data = [
+      ["Team A", "Team B", "Match Type", "Start Time"],
+      [
+        "Mumbai Indians",
+        "Chennai Super Kings",
+        "NORMAL",
+        "2026-04-01T19:30:00",
+      ],
+      [
+        "Royal Challengers Bengaluru",
+        "Kolkata Knight Riders",
+        "NORMAL",
+        "2026-04-02T15:30:00",
+      ],
+      [
+        "Delhi Capitals",
+        "Rajasthan Royals",
+        "QUARTERFINAL",
+        "2026-04-05T19:30:00",
+      ],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws["!cols"] = [{ wch: 30 }, { wch: 30 }, { wch: 15 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Matches");
+    XLSX.writeFile(wb, "matches_template.xlsx");
+  };
+
   const successCount = results?.filter((r) => r.success).length ?? 0;
   const failCount = results?.filter((r) => !r.success).length ?? 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bulk Upload</h1>
           <p className="text-muted-foreground">
-            Import multiple matches from a CSV file.
+            Import multiple matches from a CSV or Excel file.
           </p>
         </div>
-        <Button variant="outline" onClick={handleDownloadTemplate}>
-          <Download className="mr-2 h-4 w-4" />
-          Download Template
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadCSV}>
+            <Download className="mr-2 h-4 w-4" />
+            CSV Template
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDownloadExcel}>
+            <Download className="mr-2 h-4 w-4" />
+            Excel Template
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -150,9 +233,10 @@ Delhi Capitals,Rajasthan Royals,QUARTERFINAL,2026-04-05T19:30:00`;
             <CardTitle>Upload Matches</CardTitle>
           </div>
           <CardDescription>
-            CSV format: Team A, Team B, Match Type (NORMAL/QUARTERFINAL/FINAL),
-            Start Time (ISO format). Team names can use abbreviations (MI, CSK,
-            etc).
+            Supports <strong>.csv</strong> and <strong>.xlsx / .xls</strong>{" "}
+            files. Columns: Team A, Team B, Match Type
+            (NORMAL/QUARTERFINAL/FINAL), Start Time (ISO: YYYY-MM-DDTHH:MM:SS).
+            Team names support abbreviations (MI, CSK, RCB, etc).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -160,7 +244,7 @@ Delhi Capitals,Rajasthan Royals,QUARTERFINAL,2026-04-05T19:30:00`;
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,.txt"
+              accept=".csv,.txt,.xlsx,.xls"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -170,7 +254,9 @@ Delhi Capitals,Rajasthan Royals,QUARTERFINAL,2026-04-05T19:30:00`;
               className="w-full h-20 border-dashed"
             >
               <Upload className="mr-2 h-5 w-5" />
-              Click to select CSV file
+              {fileName
+                ? `Selected: ${fileName}`
+                : "Click to select CSV or Excel file"}
             </Button>
           </div>
 
@@ -181,32 +267,34 @@ Delhi Capitals,Rajasthan Royals,QUARTERFINAL,2026-04-05T19:30:00`;
               <div className="text-sm text-muted-foreground">
                 {parsedData.length} match(es) parsed from file:
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Team A</TableHead>
-                    <TableHead>Team B</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Start Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {parsedData.map((m, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{i + 1}</TableCell>
-                      <TableCell>{m.teamA}</TableCell>
-                      <TableCell>{m.teamB}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{m.matchType}</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {m.matchStartTime}
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <TableHead>Team A</TableHead>
+                      <TableHead>Team B</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Start Time</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedData.map((m, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{i + 1}</TableCell>
+                        <TableCell>{m.teamA}</TableCell>
+                        <TableCell>{m.teamB}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{m.matchType}</Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {m.matchStartTime}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
               <Button onClick={handleUpload} disabled={uploading}>
                 {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Upload {parsedData.length} Match(es)
@@ -222,42 +310,45 @@ Delhi Capitals,Rajasthan Royals,QUARTERFINAL,2026-04-05T19:30:00`;
                   <Badge variant="destructive">{failCount} failed</Badge>
                 )}
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Match</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Error</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {results.map((r) => (
-                    <TableRow key={r.index}>
-                      <TableCell>{r.index + 1}</TableCell>
-                      <TableCell>
-                        {parsedData[r.index]?.teamA} vs{" "}
-                        {parsedData[r.index]?.teamB}
-                      </TableCell>
-                      <TableCell>
-                        {r.success ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-red-500" />
-                        )}
-                      </TableCell>
-                      <TableCell className="text-red-500 text-sm">
-                        {r.error || "-"}
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <TableHead>Match</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Error</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {results.map((r) => (
+                      <TableRow key={r.index}>
+                        <TableCell>{r.index + 1}</TableCell>
+                        <TableCell>
+                          {parsedData[r.index]?.teamA} vs{" "}
+                          {parsedData[r.index]?.teamB}
+                        </TableCell>
+                        <TableCell>
+                          {r.success ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          )}
+                        </TableCell>
+                        <TableCell className="text-red-500 text-sm">
+                          {r.error || "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
               <Button
                 variant="outline"
                 onClick={() => {
                   setParsedData([]);
                   setResults(null);
+                  setFileName("");
                   if (fileRef.current) fileRef.current.value = "";
                 }}
               >

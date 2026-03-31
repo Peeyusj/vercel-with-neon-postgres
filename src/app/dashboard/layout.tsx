@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import { Sidebar } from "@/components/sidebar";
@@ -16,6 +16,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const { profile, loading: profileLoading } = useProfile();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -35,13 +36,19 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar role={profile?.role || "USER"} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <Sidebar
+        role={profile?.role || "USER"}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <DashboardHeader
           name={session.user.name}
-          walletBalance={profile?.walletBalance || "0.00"}
+          lostMoney={profile?.lostMoney}
+          wonMoney={profile?.wonMoney}
+          onMenuToggle={() => setMobileOpen((o) => !o)}
         />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

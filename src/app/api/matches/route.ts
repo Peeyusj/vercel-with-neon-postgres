@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { match, configuration } from "@/lib/db/schema";
+import { match, configuration, prediction } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
-import { eq, desc, and, sql, count } from "drizzle-orm";
+import { eq, desc, and, count, gte, lt, or } from "drizzle-orm";
 import type { MatchStatus, MatchType } from "@/lib/types";
 import { MATCH_TYPE_DEFAULTS } from "@/lib/types";
 
 // GET /api/matches - List matches with pagination & filters
 export async function GET(request: NextRequest) {
   try {
-    await requireSession();
+    const session = await requireSession();
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") as MatchStatus | null;
     const matchType = searchParams.get("matchType") as MatchType | null;
+    // dateFilter=today → today's matches (by start date) + upcoming
+    // dateFilter=history → completed/cancelled matches before today
+    const dateFilter = searchParams.get("dateFilter");
     const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const size = Math.min(
       50,
@@ -24,6 +27,30 @@ export async function GET(request: NextRequest) {
     const conditions = [];
     if (status) conditions.push(eq(match.status, status));
     if (matchType) conditions.push(eq(match.matchType, matchType));
+
+    if (dateFilter === "today") {
+      // Today's matches: start time falls within today (00:00 to 23:59:59)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      conditions.push(
+        or(
+          // Match starts today
+          and(
+            gte(match.matchStartTime, todayStart),
+            lt(match.matchStartTime, todayEnd),
+          )!,
+          // OR upcoming matches not yet started (regardless of date)
+          and(eq(match.status, "UPCOMING"), lt(match.matchStartTime, todayEnd))!,
+        )!,
+      );
+    } else if (dateFilter === "history") {
+      // History: completed or cancelled matches
+      conditions.push(
+        or(eq(match.status, "COMPLETED"), eq(match.status, "CANCELLED"))!,
+      );
+    }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -38,15 +65,45 @@ export async function GET(request: NextRequest) {
       db.select({ count: count() }).from(match).where(whereClause),
     ]);
 
+    // Fetch user's predictions for these matches
+    const matchIds = matches.map((m) => m.id);
+    let userPredictions: Array<{
+      matchId: string;
+      id: string;
+      selectedTeam: string;
+      amount: string;
+      status: string;
+    }> = [];
+
+    if (matchIds.length > 0) {
+      const preds = await db
+        .select({
+          id: prediction.id,
+          matchId: prediction.matchId,
+          selectedTeam: prediction.selectedTeam,
+          amount: prediction.amount,
+          status: prediction.status,
+        })
+        .from(prediction)
+        .where(eq(prediction.userId, session.user.id));
+
+      userPredictions = preds.filter((p) => matchIds.includes(p.matchId));
+    }
+
+    const predMap = new Map(userPredictions.map((p) => [p.matchId, p]));
+
     const totalElements = totalResult[0].count;
     const now = new Date();
 
     const content = matches.map((m) => {
       const cutoff = new Date(m.votingCutoffTime);
+      const isVotingOpen = m.status === "UPCOMING" && now < cutoff;
       const secondsUntilCutoff = Math.max(
         0,
         Math.floor((cutoff.getTime() - now.getTime()) / 1000),
       );
+      const userPred = predMap.get(m.id);
+
       return {
         id: m.id,
         teamA: m.teamA,
@@ -56,10 +113,19 @@ export async function GET(request: NextRequest) {
         entryFee: m.entryFee,
         matchStartTime: m.matchStartTime.toISOString(),
         votingCutoffTime: m.votingCutoffTime.toISOString(),
-        isVotingOpen: m.status === "UPCOMING" && now < cutoff,
+        isVotingOpen,
         secondsUntilCutoff,
         winner: m.winner,
         createdAt: m.createdAt.toISOString(),
+        userPrediction: userPred
+          ? {
+              id: userPred.id,
+              selectedTeam: userPred.selectedTeam,
+              amount: userPred.amount,
+              status: userPred.status,
+              canChange: isVotingOpen && userPred.status === "PENDING",
+            }
+          : null,
       };
     });
 
@@ -80,11 +146,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/matches - Create a new match (admin only, checked in middleware-style)
+// POST /api/matches - Create a new match (admin only)
 export async function POST(request: NextRequest) {
   try {
     const session = await requireSession();
-    // Import profile check inline
     const { profile: profileTable } = await import("@/lib/db/schema");
     const userProfile = await db.query.profile.findFirst({
       where: eq(profileTable.userId, session.user.id),
@@ -106,7 +171,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up configuration for this match type
     const config = await db.query.configuration.findFirst({
       where: eq(configuration.matchType, matchType),
     });

@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Trophy,
-  Wallet,
   History,
   Award,
   Settings,
@@ -14,6 +13,7 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -21,7 +21,6 @@ import { useState } from "react";
 const userLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/matches", label: "Matches", icon: Trophy },
-  { href: "/dashboard/wallet", label: "Wallet", icon: Wallet },
   { href: "/dashboard/predictions", label: "Voting History", icon: History },
   { href: "/dashboard/leaderboard", label: "Leaderboard", icon: Award },
 ];
@@ -35,36 +34,23 @@ const adminLinks = [
   { href: "/admin/bulk-upload", label: "Bulk Upload", icon: FileSpreadsheet },
 ];
 
-export function Sidebar({ role }: { role: string }) {
+interface SidebarProps {
+  role: string;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export function Sidebar({
+  role,
+  mobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const links = role === "ADMIN" ? [...userLinks, ...adminLinks] : userLinks;
 
-  return (
-    <aside
-      className={cn(
-        "flex flex-col border-r bg-card transition-all duration-200 h-full",
-        collapsed ? "w-16" : "w-60",
-      )}
-    >
-      <div className="flex items-center justify-between p-4 border-b">
-        {!collapsed && (
-          <span className="text-lg font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
-            IPL Predict
-          </span>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1 rounded hover:bg-muted"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </button>
-      </div>
-
+  const navContent = (
+    <>
       {role === "ADMIN" && !collapsed && (
         <div className="px-3 pt-4 pb-1">
           <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
@@ -81,7 +67,6 @@ export function Sidebar({ role }: { role: string }) {
               link.href !== "/admin" &&
               pathname.startsWith(link.href));
 
-          // Insert admin section header
           const showAdminHeader =
             role === "ADMIN" && !collapsed && index === userLinks.length;
 
@@ -96,6 +81,7 @@ export function Sidebar({ role }: { role: string }) {
               )}
               <Link
                 href={link.href}
+                onClick={onMobileClose}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   isActive
@@ -111,6 +97,68 @@ export function Sidebar({ role }: { role: string }) {
           );
         })}
       </nav>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile overlay backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+
+      {/* Mobile sidebar drawer */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card transition-transform duration-200 md:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between p-4 border-b">
+          <span className="text-lg font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+            IPL Predict
+          </span>
+          <button
+            onClick={onMobileClose}
+            className="p-1 rounded hover:bg-muted"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        {navContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          "hidden md:flex flex-col border-r bg-card transition-all duration-200 h-full",
+          collapsed ? "w-16" : "w-60",
+        )}
+      >
+        <div className="flex items-center justify-between p-4 border-b">
+          {!collapsed && (
+            <span className="text-lg font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+              IPL Predict
+            </span>
+          )}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-1 rounded hover:bg-muted"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+        {navContent}
+      </aside>
+    </>
   );
 }
